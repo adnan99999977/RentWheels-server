@@ -26,7 +26,7 @@ const client = new MongoClient(uri, {
 
 const DB = client.db("rentWheelsDB");
 const carsCollection = DB.collection("cars");
-const bookingCollection = DB.collection("booking")
+const bookingCollection = DB.collection("booking");
 
 async function run() {
   try {
@@ -55,8 +55,6 @@ async function run() {
         res.status(500).send({ message: "Failed to add car" });
       }
     });
-
-
 
     await client.db("admin").command({ ping: 1 });
     console.log(
