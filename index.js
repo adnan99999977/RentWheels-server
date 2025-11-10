@@ -15,9 +15,25 @@ admin.initializeApp({
 app.use(express.json());
 app.use(cors());
 
-const middleWare = (req, res, next) => {
-  console.log(req.headers.authorization);
-  next();
+const verifyToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Authorization header missing" });
+    }
+    const token = authHeader.split(" ")[1];
+    if (!token) {
+      return res.status(401).json({ success: false, message: "Token missing" });
+    }
+    next();
+  } catch (error) {
+    console.error("Token verification failed:", error);
+    return res
+      .status(401)
+      .json({ success: false, message: "Invalid or expired token" });
+  }
 };
 
 // DB URI
@@ -76,7 +92,7 @@ async function run() {
     });
 
     // post a car in cars
-    app.post("/cars", async (req, res) => {
+    app.post("/cars", verifyToken, async (req, res) => {
       try {
         const data = req.body;
         const result = await carsCollection.insertOne(data);
@@ -88,7 +104,7 @@ async function run() {
     });
 
     // get a car by email
-    app.get("/cars/:id", middleWare, async (req, res) => {
+    app.get("/cars/:id", async (req, res) => {
       try {
         const { id } = req.params;
         const newObjectId = new ObjectId(id);
