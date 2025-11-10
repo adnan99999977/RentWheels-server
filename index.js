@@ -158,7 +158,6 @@ async function run() {
         res.status(500).send({ message: "Failed to add car" });
       }
     });
-
     // get booked car card
     app.get("/booking", async (req, res) => {
       const cursor = bookingCollection.find();
