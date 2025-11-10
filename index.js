@@ -7,15 +7,18 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const port = process.env.PORT || 5000;
 
-
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount),
 });
-
 
 // middleware
 app.use(express.json());
 app.use(cors());
+
+const middleWare = (req, res, next) => {
+  console.log(req.headers.authorization);
+  next();
+};
 
 // DB URI
 const uri = `mongodb+srv://${process.env.DB_ADMIN}:${process.env.DB_PASSWORD}@cluster0.egeojdc.mongodb.net/?appName=Cluster`;
@@ -85,7 +88,7 @@ async function run() {
     });
 
     // get a car by email
-    app.get("/cars/:id", async (req, res) => {
+    app.get("/cars/:id", middleWare, async (req, res) => {
       try {
         const { id } = req.params;
         const newObjectId = new ObjectId(id);
