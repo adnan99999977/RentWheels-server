@@ -60,60 +60,6 @@ async function run() {
     await client.connect();
 
     //  cars API
-
-    // get cars by email and all cars 
-    app.get("/cars", async (req, res) => {
-      try {
-        const query = {};
-        const { ProviderEmail } = req.query;
-        if (ProviderEmail) {
-          query.providerEmail = ProviderEmail;
-        }
-        const result = await carsCollection.find(query).sort({createdAt : 1}).toArray();
-        res.status(200).send(result);
-      } catch (err) {
-        console.error("Error fetching cars:", err);
-        res.status(500).send({ message: "Failed to get cars" });
-      }
-    });
-
-    // get latest cars
-    app.get("/cars", async (req, res) => {
-      try {
-        const cursor = carsCollection.find().limit(6).sort({ createdAt: 1 });
-        const result = await cursor.toArray();
-        res.send(result);
-      } catch (error) {
-        console.error(error);
-        res.status(500).send({ error: "Failed to fetch cars" });
-      }
-    });
-
-    // post a car in cars
-    app.post("/cars", verifyToken, async (req, res) => {
-      try {
-        const data = req.body;
-        const result = await carsCollection.insertOne(data);
-        res.status(201).send(result);
-      } catch (err) {
-        console.error(err);
-        res.status(500).send({ message: "Failed to add car" });
-      }
-    });
-
-    // get a car by email
-    app.get("/cars/:id", async (req, res) => {
-      try {
-        const { id } = req.params;
-        const newObjectId = new ObjectId(id);
-        const result = await carsCollection.findOne({ _id: newObjectId });
-        res.status(201).send(result);
-      } catch (err) {
-        console.error(err);
-        res.status(500).send({ message: "Failed to get" });
-      }
-    });
-
     // update car status by patch
     app.patch("/cars/:id", async (req, res) => {
       try {
@@ -146,6 +92,74 @@ async function run() {
       }
     });
 
+    
+    // get cars by email
+    app.get("/cars", async (req, res) => {
+      try {
+        const query = {};
+        const providerEmail = req.query.ProviderEmail;
+        
+        if (providerEmail) {
+          query.providerEmail = providerEmail;
+        }
+        
+        const cursor = carsCollection.find(query).sort({createdAt : 1});
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to get cars" });
+      }
+    });
+    // get all cars
+    app.get("/cars", async (req, res) => {
+      try {
+        const cursor = carsCollection.find().sort({createdAt : 1});
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to get data " });
+      }
+    });
+    
+    // get latest cars
+    app.get("/cars", async (req, res) => {
+      try {
+        const cursor = carsCollection.find().limit(6).sort({ createdAt: -1 });
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ error: "Failed to fetch cars" });
+      }
+    });
+    // post a car in cars
+    app.post("/cars", verifyToken, async (req, res) => {
+      try {
+        const data = req.body;
+        const result = await carsCollection.insertOne(data);
+        res.status(201).send(result);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to add car" });
+      }
+    });
+
+    // get a car by email
+    app.get("/cars/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const newObjectId = new ObjectId(id);
+        const result = await carsCollection.findOne({ _id: newObjectId });
+        res.status(201).send(result);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to get" });
+      }
+    });
+
+   
     //   delete car from cars
     app.delete("/cars/:id", async (req, res) => {
       try {
