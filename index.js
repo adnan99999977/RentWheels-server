@@ -61,33 +61,31 @@ async function run() {
 
     //  cars API
 
-    // get cars by email
+    // get cars by email and all cars 
     app.get("/cars", async (req, res) => {
       try {
         const query = {};
-        const providerEmail = req.query.ProviderEmail;
-
-        if (providerEmail) {
-          query.providerEmail = providerEmail;
+        const { ProviderEmail } = req.query;
+        if (ProviderEmail) {
+          query.providerEmail = ProviderEmail;
         }
-
-        const cursor = carsCollection.find(query);
-        const result = await cursor.toArray();
-        res.send(result);
+        const result = await carsCollection.find(query).sort({createdAt : 1}).toArray();
+        res.status(200).send(result);
       } catch (err) {
-        console.error(err);
+        console.error("Error fetching cars:", err);
         res.status(500).send({ message: "Failed to get cars" });
       }
     });
-    // get all cars
+
+    // get latest cars
     app.get("/cars", async (req, res) => {
       try {
-        const cursor = carsCollection.find();
+        const cursor = carsCollection.find().limit(6).sort({ createdAt: 1 });
         const result = await cursor.toArray();
         res.send(result);
-      } catch (err) {
-        console.error(err);
-        res.status(500).send({ message: "Failed to get data " });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ error: "Failed to fetch cars" });
       }
     });
 
