@@ -4,29 +4,34 @@ const admin = require("firebase-admin");
 const serviceAccount = require("./sdk.json");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+
 const app = express();
 const port = process.env.PORT || 5000;
 
+// Firebase Admin
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-// middleware
+// Middleware
 app.use(express.json());
 app.use(cors());
 
+// Verify Token Middleware
 const verifyToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    if (!authHeader) {
+    if (!authHeader)
       return res
         .status(401)
         .json({ success: false, message: "Authorization header missing" });
-    }
+
     const token = authHeader.split(" ")[1];
-    if (!token) {
+    if (!token)
       return res.status(401).json({ success: false, message: "Token missing" });
-    }
+
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.user = decoded;
     next();
   } catch (error) {
     console.error("Token verification failed:", error);
@@ -36,11 +41,8 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-// DB URI
+// MongoDB Connection
 const uri = `mongodb+srv://${process.env.DB_ADMIN}:${process.env.DB_PASSWORD}@cluster0.egeojdc.mongodb.net/?appName=Cluster`;
-
-// DB client
-
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -49,8 +51,6 @@ const client = new MongoClient(uri, {
   },
 });
 
-// DB connection
-
 const DB = client.db("rentWheelsDB");
 const carsCollection = DB.collection("cars");
 const bookingCollection = DB.collection("booking");
@@ -58,26 +58,27 @@ const bookingCollection = DB.collection("booking");
 async function run() {
   try {
     await client.connect();
+    console.log("MongoDB Connected Successfully");
 
-    //  cars API
-    // update car status by patch
-    app.patch("/cars/:id",verifyToken, async (req, res) => {
+    // Update car status (PATCH)
+    app.patch("/cars/:id", verifyToken, async (req, res) => {
       try {
         const { id } = req.params;
         const { status } = req.body;
         const filter = { _id: new ObjectId(id) };
-        const updateDoc = {
-          $set: { status: status },
-        };
+        const updateDoc = { $set: { status } };
         const result = await carsCollection.updateOne(filter, updateDoc);
+        res
+          .status(200)
+          .send({ success: true, message: "Status updated", result });
       } catch (err) {
         console.error(err);
         res.status(500).send({ message: "Failed to update status" });
       }
     });
 
-    // update car  by put
-    app.put("/cars/:id",verifyToken, async (req, res) => {
+    // Update car (PUT)
+    app.put("/cars/:id", verifyToken, async (req, res) => {
       try {
         const { id } = req.params;
         const updateData = req.body;
@@ -92,58 +93,53 @@ async function run() {
       }
     });
 
-    // get cars by email
+    // Get all cars  by provider email
     app.get("/cars", async (req, res) => {
       try {
         const query = {};
         const providerEmail = req.query.ProviderEmail;
+        if (providerEmail) query.providerEmail = providerEmail;
 
-        if (providerEmail) {
-          query.providerEmail = providerEmail;
-        }
-
-        const cursor = carsCollection.find(query).sort({ createdAt: 1 });
-        const result = await cursor.toArray();
-        res.send(result);
+        const cars = await carsCollection
+          .find(query)
+          .sort({ createdAt: 1 })
+          .toArray();
+        res.send(cars);
       } catch (err) {
         console.error(err);
         res.status(500).send({ message: "Failed to get cars" });
       }
     });
 
-    // get latest cars
+    // Get latest cars
     app.get("/latest-cars", async (req, res) => {
       try {
-        const cursor = carsCollection.find().limit(6).sort({ createdAt: -1 });
-        const result = await cursor.toArray();
-        res.send(result);
-      } catch (error) {
-        console.error(error);
+        const cars = await carsCollection
+          .find()
+          .limit(6)
+          .sort({ createdAt: -1 })
+          .toArray();
+        res.send(cars);
+      } catch (err) {
+        console.error(err);
         res.status(500).send({ error: "Failed to fetch cars" });
       }
     });
 
-    // searched cars
+    // Search cars
     app.get("/search", async (req, res) => {
-      const searchText = req.query.search || "";
-      const query = { carName: { $regex: searchText, $options: "i" } };
-      const result = await carsCollection.find(query).toArray();
-      res.send(result);
-    });
-
-    // get all cars
-    app.get("/cars", async (req, res) => {
       try {
-        const cursor = carsCollection.find().sort({ createdAt: 1 });
-        const result = await cursor.toArray();
+        const searchText = req.query.search || "";
+        const query = { carName: { $regex: searchText, $options: "i" } };
+        const result = await carsCollection.find(query).toArray();
         res.send(result);
       } catch (err) {
         console.error(err);
-        res.status(500).send({ message: "Failed to get data " });
+        res.status(500).send({ message: "Search failed" });
       }
     });
 
-    // post a car in cars
+    // Add car POST
     app.post("/cars", verifyToken, async (req, res) => {
       try {
         const data = req.body;
@@ -155,34 +151,30 @@ async function run() {
       }
     });
 
-    // get a car by email
+    // Get car by ID
     app.get("/cars/:id", async (req, res) => {
       try {
         const { id } = req.params;
-        const newObjectId = new ObjectId(id);
-        const result = await carsCollection.findOne({ _id: newObjectId });
-        res.status(201).send(result);
+        const car = await carsCollection.findOne({ _id: new ObjectId(id) });
+        res.status(200).send(car);
       } catch (err) {
         console.error(err);
-        res.status(500).send({ message: "Failed to get" });
+        res.status(500).send({ message: "Failed to get car" });
       }
     });
 
-    //   delete car from cars
-    app.delete("/cars/:id",verifyToken, async (req, res) => {
+    // Delete car
+    app.delete("/cars/:id", verifyToken, async (req, res) => {
       try {
         const { id } = req.params;
-        const filter = { _id: new ObjectId(id) };
-
-        const result = await carsCollection.deleteOne(filter);
-
-        if (result.deletedCount === 1) {
+        const result = await carsCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        if (result.deletedCount === 1)
           res
             .status(200)
             .send({ success: true, message: "Car deleted successfully" });
-        } else {
-          res.status(404).send({ success: false, message: "Car not found" });
-        }
+        else res.status(404).send({ success: false, message: "Car not found" });
       } catch (err) {
         console.error(err);
         res
@@ -191,66 +183,76 @@ async function run() {
       }
     });
 
-    // booking API
+    //  Booking Routes
 
-    // book a car
-    app.post("/booking",verifyToken, async (req, res) => {
+    // Add booking
+    app.post("/booking", verifyToken, async (req, res) => {
       try {
         const data = req.body;
         const result = await bookingCollection.insertOne(data);
-        res.send(result);
+
+        // Update car status to unavailable after booking
+        await carsCollection.updateOne(
+          { _id: new ObjectId(data.carId) },
+          { $set: { status: "Unavailable" } }
+        );
+
         res.status(201).send(result);
       } catch (err) {
         console.error(err);
-        res.status(500).send({ message: "Failed to add car" });
+        res.status(500).send({ message: "Failed to add booking" });
       }
     });
-    // get booked car card
-    app.get("/booking",verifyToken, async (req, res) => {
-      const cursor = bookingCollection.find();
-      const result = await cursor.toArray();
-      res.send(result);
+
+    // Get all bookings
+    app.get("/booking", async (req, res) => {
+      try {
+        const bookings = await bookingCollection.find().toArray();
+        res.send(bookings);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to fetch bookings" });
+      }
     });
 
-    // delete car from booking
-
-    app.delete("/booking/:id",verifyToken, async (req, res) => {
+    // Delete booking
+    app.delete("/booking/:id", verifyToken, async (req, res) => {
       try {
         const { id } = req.params;
-        const filter = { _id: id };
-
-        const result = await bookingCollection.deleteOne(filter);
-
-        if (result.deletedCount === 1) {
+        const result = await bookingCollection.deleteOne({
+          _id: id,
+        });
+        if (result.deletedCount === 1)
           res
             .status(200)
-            .send({ success: true, message: "Car deleted successfully" });
-        } else {
-          res.status(404).send({ success: false, message: "Car not found" });
-        }
+            .send({ success: true, message: "Booking deleted successfully" });
+        else
+          res
+            .status(404)
+            .send({ success: false, message: "Booking not found" });
       } catch (err) {
         console.error(err);
         res
           .status(500)
-          .send({ success: false, message: "Failed to delete car" });
+          .send({ success: false, message: "Failed to delete booking" });
       }
     });
 
     await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    console.log("MongoDB Ping Successful. Connected to Database!");
   } finally {
+    // client.close();
   }
 }
+
 run().catch(console.dir);
 
-// server connection
-
+//  Base Route
 app.get("/", (req, res) => {
-  res.send("Hello World!");
+  res.send("Hello World! Rent Wheels API is running.");
 });
 
+// Start Server
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
+  console.log(`Server running on port ${port}`);
 });
