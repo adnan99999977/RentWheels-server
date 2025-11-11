@@ -244,6 +244,21 @@ async function run() {
       }
     });
 
+   app.put("/booking/:id", verifyToken, async (req, res) => {
+      try {
+        const { id } = req.params;
+        const updateData = req.body;
+        const result = await bookingCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updateData }
+        );
+        res.status(200).send({ success: true, message: "Car updated", result });
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ success: false, message: "Update failed" });
+      }
+    });
+
     // await client.db("admin").command({ ping: 1 });
     console.log("MongoDB Ping Successful. Connected to Database!");
   } finally {
