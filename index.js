@@ -61,7 +61,7 @@ async function run() {
 
     //  cars API
     // update car status by patch
-    app.patch("/cars/:id", async (req, res) => {
+    app.patch("/cars/:id",verifyToken, async (req, res) => {
       try {
         const { id } = req.params;
         const { status } = req.body;
@@ -77,7 +77,7 @@ async function run() {
     });
 
     // update car  by put
-    app.put("/cars/:id", async (req, res) => {
+    app.put("/cars/:id",verifyToken, async (req, res) => {
       try {
         const { id } = req.params;
         const updateData = req.body;
@@ -92,18 +92,17 @@ async function run() {
       }
     });
 
-    
     // get cars by email
     app.get("/cars", async (req, res) => {
       try {
         const query = {};
         const providerEmail = req.query.ProviderEmail;
-        
+
         if (providerEmail) {
           query.providerEmail = providerEmail;
         }
-        
-        const cursor = carsCollection.find(query).sort({createdAt : 1});
+
+        const cursor = carsCollection.find(query).sort({ createdAt: 1 });
         const result = await cursor.toArray();
         res.send(result);
       } catch (err) {
@@ -111,20 +110,9 @@ async function run() {
         res.status(500).send({ message: "Failed to get cars" });
       }
     });
-    // get all cars
-    app.get("/cars", async (req, res) => {
-      try {
-        const cursor = carsCollection.find().sort({createdAt : 1});
-        const result = await cursor.toArray();
-        res.send(result);
-      } catch (err) {
-        console.error(err);
-        res.status(500).send({ message: "Failed to get data " });
-      }
-    });
-    
+
     // get latest cars
-    app.get("/cars", async (req, res) => {
+    app.get("/latest-cars", async (req, res) => {
       try {
         const cursor = carsCollection.find().limit(6).sort({ createdAt: -1 });
         const result = await cursor.toArray();
@@ -134,6 +122,27 @@ async function run() {
         res.status(500).send({ error: "Failed to fetch cars" });
       }
     });
+
+    // searched cars
+    app.get("/search", async (req, res) => {
+      const searchText = req.query.search || "";
+      const query = { carName: { $regex: searchText, $options: "i" } };
+      const result = await carsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // get all cars
+    app.get("/cars", async (req, res) => {
+      try {
+        const cursor = carsCollection.find().sort({ createdAt: 1 });
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to get data " });
+      }
+    });
+
     // post a car in cars
     app.post("/cars", verifyToken, async (req, res) => {
       try {
@@ -159,9 +168,8 @@ async function run() {
       }
     });
 
-   
     //   delete car from cars
-    app.delete("/cars/:id", async (req, res) => {
+    app.delete("/cars/:id",verifyToken, async (req, res) => {
       try {
         const { id } = req.params;
         const filter = { _id: new ObjectId(id) };
@@ -186,7 +194,7 @@ async function run() {
     // booking API
 
     // book a car
-    app.post("/booking", async (req, res) => {
+    app.post("/booking",verifyToken, async (req, res) => {
       try {
         const data = req.body;
         const result = await bookingCollection.insertOne(data);
@@ -198,7 +206,7 @@ async function run() {
       }
     });
     // get booked car card
-    app.get("/booking", async (req, res) => {
+    app.get("/booking",verifyToken, async (req, res) => {
       const cursor = bookingCollection.find();
       const result = await cursor.toArray();
       res.send(result);
@@ -206,7 +214,7 @@ async function run() {
 
     // delete car from booking
 
-    app.delete("/booking/:id", async (req, res) => {
+    app.delete("/booking/:id",verifyToken, async (req, res) => {
       try {
         const { id } = req.params;
         const filter = { _id: id };
