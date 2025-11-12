@@ -94,6 +94,22 @@ app.get("/cars", async (req, res) => {
   }
 });
 
+app.get("/search", async (req, res) => {
+  try {
+    const text = req.query.search;
+    if (!text) return res.send([]);
+
+    const result = await carsCollection
+      .find({ carName: { $regex: text, $options: "i" } })
+      .toArray();
+
+    res.send(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Search failed" });
+  }
+});
+
 // Get latest 6 cars
 app.get("/latest-cars", async (req, res) => {
   try {
